@@ -1,0 +1,214 @@
+﻿@page "/admin/teams"
+@using BigDaddyProject.Application.DTOs
+@using BigDaddyProject.Application.Interfaces
+@using BigDaddyProject.Web.Components.Layout
+@using BigDaddyProject.Web.Services
+@inject ITeamService TeamService
+@inject IRoleService RoleService
+@inject SessionStorageService Session
+@rendermode InteractiveServer
+
+<AdminLayout Breadcrumbs="_bc">
+    <Body>
+        <div class="page-card">
+            <div class="card-toolbar">
+                <h2 class="page-title">Teams</h2>
+                <button class="btn-add" @onclick="ShowCreate">+ New Team</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_msg))
+            {
+                <div class="@(_msgOk ? "alert-ok" : "alert-err") m-h">@_msg</div>
+            }
+
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Team Name</th>
+                            <th class="col-center">Members</th>
+                            <th>Assigned Roles</th>
+                            <th class="col-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in _teams)
+                        {
+                            <tr>
+                                <td class="text-muted">@t.Id</td>
+                                <td class="td-name">@t.Name</td>
+                                <td class="col-center"><span class="count-badge">@t.MemberCount</span></td>
+                                <td>
+                                    <div class="tags">
+                                        @foreach (var r in t.Roles)
+                                        {
+                                            <span class="tag tag-role">@r</span>
+                                        }
+                                        @if (!t.Roles.Any()) { <span class="text-muted">None</span> }
+                                    </div>
+                                </td>
+                                <td class="col-center">
+                                    <div class="action-group">
+                                        <button class="btn-row-edit" @onclick="() => ShowEdit(t)">Edit</button>
+                                        <button class="btn-row-teams" @onclick="() => ShowRoles(t)">Roles</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_teams.Any()) { <tr><td colspan="5" class="empty-row">No teams yet.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (_modal)
+        {
+            <div class="modal-bg" @onclick="CloseModal">
+                <div class="modal-box" @onclick:stopPropagation="true">
+                    <div class="modal-head">
+                        <span>@(_rolesMode ? $"Assign Roles — {_editing?.Name}" : _editMode ? "Edit Team" : "Create Team")</span>
+                        <button class="modal-close" @onclick="CloseModal">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        @if (_rolesMode)
+                        {
+                            @foreach (var r in _allRoles)
+                            {
+                                <label class="check-row">
+                                    <input type="checkbox"
+                                           checked="@_selRoles.Contains(r.Id)"
+                                           @onchange="() => ToggleRole(r.Id)" />
+                                    <span>@r.Name</span>
+                                </label>
+                            }
+                        }
+                        else
+                        {
+                            <div class="field">
+                                <label>Team Name <span class="req">*</span></label>
+                                <input @bind="_teamName" class="f-inp" placeholder="e.g. Sales Team A" />
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-foot">
+                        <button class="btn-save" @onclick="SaveAsync">Save</button>
+                        <button class="btn-cancel" @onclick="CloseModal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </Body>
+</AdminLayout>
+
+<style>
+    .page-card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .card-toolbar { padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; }
+    .page-title { font-size: 1.1rem; font-weight: 600; color: #333; }
+    .btn-add { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 18px; cursor: pointer; font-size: 0.875rem; }
+    .m-h { margin: 1rem 1.5rem 0; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.875rem; }
+    .alert-err { background: #fff0f0; border: 1px solid #ffcdd2; color: #c62828; }
+    .alert-ok  { background: #f0fff4; border: 1px solid #c8e6c9; color: #2e7d32; }
+    .table-scroll { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .data-table thead tr { background: #fafafa; border-bottom: 1px solid #e8eaed; }
+    .data-table th { padding: 10px 14px; font-size: 0.8rem; font-weight: 600; color: #555; text-align: left; }
+    .data-table th.col-center { text-align: center; }
+    .data-table tbody tr { border-bottom: 1px solid #f0f0f0; }
+    .data-table tbody tr:hover { background: #fafbff; }
+    .data-table td { padding: 10px 14px; vertical-align: middle; }
+    .data-table td.col-center { text-align: center; }
+    .td-name { font-weight: 500; }
+    .text-muted { color: #aaa; font-size: 0.8rem; }
+    .empty-row { text-align: center; color: #999; padding: 3rem; }
+    .count-badge { display: inline-flex; align-items: center; justify-content: center; background: #e8eaf6; color: #3949ab; min-width: 28px; height: 28px; border-radius: 50%; font-size: 0.8rem; font-weight: 600; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag { padding: 2px 10px; border-radius: 10px; font-size: 0.775rem; }
+    .tag-role { background: #e8eaf6; color: #3949ab; }
+    .action-group { display: flex; gap: 6px; justify-content: center; }
+    .btn-row-edit  { padding: 4px 12px; border: 1px solid #1a237e; color: #1a237e; background: white; border-radius: 4px; font-size: 0.775rem; cursor: pointer; }
+    .btn-row-edit:hover  { background: #e8eaf6; }
+    .btn-row-teams { padding: 4px 12px; border: 1px solid #6a1b9a; color: #6a1b9a; background: white; border-radius: 4px; font-size: 0.775rem; cursor: pointer; }
+    .btn-row-teams:hover { background: #f3e5f5; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 500; }
+    .modal-box { background: white; border-radius: 10px; width: 440px; max-width: 95vw; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+    .modal-head { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; font-weight: 600; font-size: 0.95rem; }
+    .modal-close { background: none; border: none; cursor: pointer; font-size: 1rem; color: #999; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 1.25rem; }
+    .modal-foot { padding: 1rem 1.25rem; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; justify-content: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 0.8rem; font-weight: 500; color: #555; }
+    .f-inp { height: 36px; padding: 0 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.875rem; color: #333; outline: none; }
+    .f-inp:focus { border-color: #1a237e; }
+    .req { color: #c62828; }
+    .check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; cursor: pointer; font-size: 0.875rem; border-bottom: 1px solid #f5f5f5; }
+    .check-row input { cursor: pointer; }
+    .btn-save { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 22px; cursor: pointer; font-size: 0.875rem; }
+    .btn-cancel { background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 5px; padding: 8px 18px; cursor: pointer; font-size: 0.875rem; }
+</style>
+
+@code {
+    private List<(string, string, bool)> _bc = new()
+    {
+        ("Dashboard", "/admin", false),
+        ("User Management", "/admin/teams", false),
+        ("Teams", "/admin/teams", true)
+    };
+
+    private List<TeamDto> _teams = new();
+    private List<RoleDto> _allRoles = new();
+    private bool _modal, _editMode, _rolesMode;
+    private TeamDto? _editing;
+    private string _teamName = "";
+    private HashSet<int> _selRoles = new();
+    private string? _msg;
+    private bool _msgOk;
+    private int _myId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await Session.GetAsync(); _myId = s?.UserId ?? 0;
+        await LoadAsync(); StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        var r = await TeamService.GetTeamsAsync();
+        if (r.IsSuccess) _teams = r.Value!;
+        var rr = await RoleService.GetRolesAsync();
+        if (rr.IsSuccess) _allRoles = rr.Value!;
+    }
+
+    private void ShowCreate() { _editMode = false; _rolesMode = false; _teamName = ""; _modal = true; }
+    private void ShowEdit(TeamDto t) { _editMode = true; _rolesMode = false; _editing = t; _teamName = t.Name; _modal = true; }
+    private void ShowRoles(TeamDto t)
+    {
+        _editing = t; _rolesMode = true;
+        _selRoles = _allRoles.Where(r => t.Roles.Contains(r.Name)).Select(r => r.Id).ToHashSet();
+        _modal = true;
+    }
+    private void CloseModal() { _modal = false; }
+    private void ToggleRole(int id) { if (!_selRoles.Remove(id)) _selRoles.Add(id); }
+
+    private async Task SaveAsync()
+    {
+        if (_rolesMode && _editing != null)
+        {
+            var r = await TeamService.AssignRolesAsync(_editing.Id, _selRoles.ToList());
+            _msg = r.IsSuccess ? "Roles assigned." : r.Error; _msgOk = r.IsSuccess;
+        }
+        else if (_editMode && _editing != null)
+        {
+            var r = await TeamService.UpdateTeamAsync(_editing.Id, new(_teamName));
+            _msg = r.IsSuccess ? "Team updated." : r.Error; _msgOk = r.IsSuccess;
+        }
+        else
+        {
+            var r = await TeamService.CreateTeamAsync(new(_teamName), _myId);
+            _msg = r.IsSuccess ? "Team created." : r.Error; _msgOk = r.IsSuccess;
+        }
+        CloseModal();
+        await LoadAsync();
+    }
+}

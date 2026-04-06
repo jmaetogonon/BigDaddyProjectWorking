@@ -1,0 +1,166 @@
+﻿@page "/admin/users/create"
+@using BigDaddyProject.Application.DTOs
+@using BigDaddyProject.Application.Interfaces
+@using BigDaddyProject.Web.Components.Layout
+@using BigDaddyProject.Web.Services
+@inject IUserService UserService
+@inject SessionStorageService Session
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<AdminLayout Breadcrumbs="_bc">
+    <Body>
+        <div class="form-page">
+            <div class="form-card">
+                <div class="form-card-head">
+                    <h2>Create New User</h2>
+                    <p class="form-card-sub">A temporary password will be emailed to the user automatically.</p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_err))
+                {
+                    <div class="alert-err">@_err</div>
+                }
+                @if (!string.IsNullOrEmpty(_ok))
+                {
+                    <div class="alert-ok">@_ok</div>
+                }
+
+                <div class="form-grid">
+                    <div class="field">
+                        <label>Full Name <span class="req">*</span></label>
+                        <input @bind="_name" class="f-inp" placeholder="e.g. John Smith" />
+                    </div>
+                    <div class="field">
+                        <label>Email <span class="req">*</span></label>
+                        <input @bind="_email" type="email" class="f-inp" placeholder="user@example.com" />
+                    </div>
+                    <div class="field">
+                        <label>Mobile</label>
+                        <input @bind="_mobile" class="f-inp" placeholder="+65 9123 4567" />
+                    </div>
+                    <div class="field">
+                        <label>CEA / Reg Number</label>
+                        <input @bind="_ceaNum" class="f-inp" placeholder="R012345A" />
+                    </div>
+                    <div class="field">
+                        <label>CEA Expiry Date</label>
+                        <input @bind="_ceaExpiry" type="date" class="f-inp" />
+                    </div>
+                    <div class="field">
+                        <label>Account Expiration Date</label>
+                        <input @bind="_expiry" type="date" class="f-inp" />
+                    </div>
+                    <div class="field">
+                        <label>Status</label>
+                        <select @bind="_status" class="f-inp">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-foot">
+                    <button class="btn-primary" @onclick="SubmitAsync" disabled="@_saving">
+                        @(_saving ? "Creating..." : "Create User")
+                    </button>
+                    <button class="btn-secondary" @onclick='() => Nav.NavigateTo("/admin/users")'>
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bulk upload section -->
+            <div class="form-card mt-card">
+                <div class="form-card-head">
+                    <h2>Bulk User Creation (CSV)</h2>
+                    <p class="form-card-sub">Upload a CSV file to create multiple users at once.</p>
+                </div>
+                <div class="bulk-row">
+                    <a href="/api/users/bulk-template" class="btn-outline">⬇ Download Template</a>
+                    <label class="btn-outline upload-lbl">
+                        📁 Upload CSV
+                        <InputFile OnChange="BulkUploadAsync" accept=".csv" style="display:none"/>
+                    </label>
+                    @if (!string.IsNullOrEmpty(_bulkMsg))
+                    {
+                        <span class="bulk-msg">@_bulkMsg</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </Body>
+</AdminLayout>
+
+<style>
+    .form-page { max-width: 820px; }
+    .form-card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .form-card.mt-card { margin-top: 1.5rem; }
+    .form-card-head { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f0f0f0; }
+    .form-card-head h2 { font-size: 1rem; font-weight: 600; color: #333; }
+    .form-card-sub { font-size: 0.825rem; color: #888; margin-top: 4px; }
+    .req { color: #c62828; }
+    .alert-err { margin: 1rem 1.5rem 0; background: #fff0f0; border: 1px solid #ffcdd2; color: #c62828; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem; }
+    .alert-ok  { margin: 1rem 1.5rem 0; background: #f0fff4; border: 1px solid #c8e6c9; color: #2e7d32; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; padding: 1.5rem; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 0.8rem; font-weight: 500; color: #555; }
+    .f-inp { height: 36px; padding: 0 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.875rem; color: #333; outline: none; }
+    .f-inp:focus { border-color: #1a237e; }
+    .form-foot { padding: 1rem 1.5rem; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; }
+    .btn-primary { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 24px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+    .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+    .btn-secondary { background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 5px; padding: 8px 20px; cursor: pointer; font-size: 0.875rem; }
+    .bulk-row { padding: 1.5rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .btn-outline { border: 1px solid #1a237e; color: #1a237e; background: white; padding: 8px 16px; border-radius: 5px; font-size: 0.875rem; cursor: pointer; text-decoration: none; }
+    .upload-lbl { cursor: pointer; }
+    .bulk-msg { font-size: 0.875rem; color: #555; }
+</style>
+
+@code {
+    private List<(string, string, bool)> _bc = new()
+    {
+        ("Dashboard", "/admin", false),
+        ("User Management", "/admin/users", false),
+        ("Create New Users", "/admin/users/create", true)
+    };
+
+    private string _name = "", _email = "", _mobile = "", _ceaNum = "", _status = "Active";
+    private DateTime? _ceaExpiry, _expiry;
+    private string? _err, _ok, _bulkMsg;
+    private bool _saving;
+    private int _myId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await Session.GetAsync();
+        _myId = s?.UserId ?? 0;
+        StateHasChanged();
+    }
+
+    private async Task SubmitAsync()
+    {
+        _err = null; _ok = null;
+        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_email))
+        { _err = "Name and Email are required."; return; }
+
+        _saving = true;
+        var r = await UserService.CreateUserAsync(
+            new CreateUserRequest(_name, _email, _ceaNum.NullIfEmpty(),
+                _ceaExpiry, _mobile.NullIfEmpty(), _expiry, _status), _myId);
+        _saving = false;
+
+        if (!r.IsSuccess) { _err = r.Error; return; }
+        _ok = $"User created successfully (ID: {r.Value}).";
+        _name = _email = _mobile = _ceaNum = ""; _ceaExpiry = _expiry = null;
+    }
+
+    private async Task BulkUploadAsync(InputFileChangeEventArgs e)
+    {
+        _bulkMsg = "Uploading...";
+        using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
+        var r = await UserService.BulkCreateAsync(stream, _myId);
+        _bulkMsg = r.IsSuccess ? "Upload complete." : $"Error: {r.Error}";
+    }
+} 

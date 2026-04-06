@@ -1,0 +1,240 @@
+﻿@page "/admin/roles"
+@using BigDaddyProject.Application.DTOs
+@using BigDaddyProject.Application.Interfaces
+@using BigDaddyProject.Web.Components.Layout
+@using BigDaddyProject.Web.Services
+@inject IRoleService RoleService
+@inject IPermissionService PermService
+@inject SessionStorageService Session
+@rendermode InteractiveServer
+
+<AdminLayout Breadcrumbs="_bc">
+    <Body>
+        <div class="page-card">
+            <div class="card-toolbar">
+                <h2 class="page-title">Roles</h2>
+                <button class="btn-add" @onclick="ShowCreate">+ New Role</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_msg))
+            {
+                <div class="@(_msgOk ? "alert-ok" : "alert-err") m-h">@_msg</div>
+            }
+
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Role Name</th><th>Description</th>
+                            <th class="col-center">Permissions</th>
+                            <th class="col-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _roles)
+                        {
+                            <tr>
+                                <td class="text-muted">@r.Id</td>
+                                <td class="td-name">@r.Name</td>
+                                <td class="text-muted">@r.Description</td>
+                                <td class="col-center"><span class="count-badge">@r.Permissions.Count</span></td>
+                                <td class="col-center">
+                                    <div class="action-group">
+                                        <button class="btn-row-edit"  @onclick="() => ShowEdit(r)">Edit</button>
+                                        <button class="btn-row-perms" @onclick="() => ShowPermissions(r)">Permissions</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_roles.Any()) { <tr><td colspan="5" class="empty-row">No roles yet.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (_modal)
+        {
+            <div class="modal-bg" @onclick="CloseModal">
+                <div class="modal-box @(_permsMode ? "modal-wide" : "")" @onclick:stopPropagation="true">
+                    <div class="modal-head">
+                        <span>@(_permsMode ? $"Permissions — {_editing?.Name}" : _editMode ? "Edit Role" : "Create Role")</span>
+                        <button class="modal-close" @onclick="CloseModal">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        @if (_permsMode)
+                        {
+                            @foreach (var grp in _permsByGroup)
+                            {
+                                <div class="perm-group">
+                                    <div class="perm-group-label">@grp.Key</div>
+                                    @foreach (var p in grp.Value)
+                                    {
+                                        <div class="perm-row">
+                                            <span class="perm-name">@p.Name</span>
+                                            <span class="perm-type">@p.Type</span>
+                                            <div class="level-opts">
+                                                <label class="level-opt">
+                                                    <input type="radio" name="p@p.Id"
+                                                           checked="@(!_selPerms.ContainsKey(p.Id))"
+                                                           @onchange="() => SetPerm(p.Id, -1)" />
+                                                    None
+                                                </label>
+                                                <label class="level-opt">
+                                                    <input type="radio" name="p@p.Id"
+                                                           checked="@(_selPerms.GetValueOrDefault(p.Id) == 1)"
+                                                           @onchange="() => SetPerm(p.Id, 1)" />
+                                                    Individual
+                                                </label>
+                                                <label class="level-opt">
+                                                    <input type="radio" name="p@p.Id"
+                                                           checked="@(_selPerms.GetValueOrDefault(p.Id) == 2)"
+                                                           @onchange="() => SetPerm(p.Id, 2)" />
+                                                    Organization
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="field">
+                                <label>Role Name <span class="req">*</span></label>
+                                <input @bind="_roleName" class="f-inp" />
+                            </div>
+                            <div class="field" style="margin-top:12px">
+                                <label>Description</label>
+                                <input @bind="_roleDesc" class="f-inp" placeholder="Optional" />
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-foot">
+                        <button class="btn-save" @onclick="SaveAsync">Save</button>
+                        <button class="btn-cancel" @onclick="CloseModal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </Body>
+</AdminLayout>
+
+<style>
+    .page-card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .card-toolbar { padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; }
+    .page-title { font-size: 1.1rem; font-weight: 600; color: #333; }
+    .btn-add { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 18px; cursor: pointer; font-size: 0.875rem; }
+    .m-h { margin: 1rem 1.5rem 0; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.875rem; }
+    .alert-err { background: #fff0f0; border: 1px solid #ffcdd2; color: #c62828; }
+    .alert-ok  { background: #f0fff4; border: 1px solid #c8e6c9; color: #2e7d32; }
+    .table-scroll { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .data-table thead tr { background: #fafafa; border-bottom: 1px solid #e8eaed; }
+    .data-table th { padding: 10px 14px; font-size: 0.8rem; font-weight: 600; color: #555; text-align: left; }
+    .data-table th.col-center { text-align: center; }
+    .data-table tbody tr { border-bottom: 1px solid #f0f0f0; }
+    .data-table tbody tr:hover { background: #fafbff; }
+    .data-table td { padding: 10px 14px; vertical-align: middle; }
+    .data-table td.col-center { text-align: center; }
+    .td-name { font-weight: 500; }
+    .text-muted { color: #aaa; font-size: 0.8rem; }
+    .empty-row { text-align: center; color: #999; padding: 3rem; }
+    .count-badge { display: inline-flex; align-items: center; justify-content: center; background: #e8eaf6; color: #3949ab; min-width: 28px; height: 28px; border-radius: 50%; font-size: 0.8rem; font-weight: 600; padding: 0 4px; }
+    .action-group { display: flex; gap: 6px; justify-content: center; }
+    .btn-row-edit  { padding: 4px 12px; border: 1px solid #1a237e; color: #1a237e; background: white; border-radius: 4px; font-size: 0.775rem; cursor: pointer; }
+    .btn-row-edit:hover  { background: #e8eaf6; }
+    .btn-row-perms { padding: 4px 12px; border: 1px solid #6a1b9a; color: #6a1b9a; background: white; border-radius: 4px; font-size: 0.775rem; cursor: pointer; }
+    .btn-row-perms:hover { background: #f3e5f5; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 500; }
+    .modal-box { background: white; border-radius: 10px; width: 440px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+    .modal-box.modal-wide { width: 700px; }
+    .modal-head { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; font-weight: 600; font-size: 0.95rem; }
+    .modal-close { background: none; border: none; cursor: pointer; font-size: 1rem; color: #999; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 1.25rem; }
+    .modal-foot { padding: 1rem 1.25rem; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; justify-content: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 0.8rem; font-weight: 500; color: #555; }
+    .f-inp { height: 36px; padding: 0 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.875rem; color: #333; outline: none; }
+    .f-inp:focus { border-color: #1a237e; }
+    .req { color: #c62828; }
+    .btn-save { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 22px; cursor: pointer; font-size: 0.875rem; }
+    .btn-cancel { background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 5px; padding: 8px 18px; cursor: pointer; font-size: 0.875rem; }
+    /* Permission matrix */
+    .perm-group { margin-bottom: 1.5rem; }
+    .perm-group-label { font-size: 0.75rem; font-weight: 700; color: #1a237e; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e8eaf6; padding-bottom: 4px; margin-bottom: 6px; }
+    .perm-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f5f5f5; }
+    .perm-name { flex: 1; font-size: 0.825rem; color: #333; }
+    .perm-type { font-size: 0.75rem; color: #888; padding: 2px 8px; background: #f5f5f5; border-radius: 8px; white-space: nowrap; }
+    .level-opts { display: flex; gap: 12px; }
+    .level-opt { display: flex; align-items: center; gap: 4px; font-size: 0.775rem; color: #555; cursor: pointer; white-space: nowrap; }
+    .level-opt input { cursor: pointer; }
+</style>
+
+@code {
+    private List<(string, string, bool)> _bc = new()
+    {
+        ("Dashboard", "/admin", false),
+        ("User Management", "/admin/roles", false),
+        ("Roles", "/admin/roles", true)
+    };
+
+    private List<RoleDto> _roles = new();
+    private List<PermissionDto> _allPerms = new();
+    private Dictionary<string, List<PermissionDto>> _permsByGroup = new();
+    private bool _modal, _editMode, _permsMode;
+    private RoleDto? _editing;
+    private string _roleName = "", _roleDesc = "";
+    private Dictionary<int, int> _selPerms = new();
+    private string? _msg;
+    private bool _msgOk;
+    private int _myId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await Session.GetAsync(); _myId = s?.UserId ?? 0;
+        await LoadAsync(); StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        var r = await RoleService.GetRolesAsync();
+        if (r.IsSuccess) _roles = r.Value!;
+        var rp = await PermService.GetAllPermissionsAsync();
+        if (rp.IsSuccess)
+        {
+            _allPerms = rp.Value!;
+            _permsByGroup = _allPerms
+                .GroupBy(p => p.Group)
+                .ToDictionary(g => g.Key, g => g.OrderBy(p => p.DisplayOrder).ToList());
+        }
+    }
+
+    private void ShowCreate() { _editMode = false; _permsMode = false; _roleName = ""; _roleDesc = ""; _modal = true; }
+    private void ShowEdit(RoleDto r) { _editMode = true; _permsMode = false; _editing = r; _roleName = r.Name; _roleDesc = r.Description ?? ""; _modal = true; }
+    private void ShowPermissions(RoleDto r) { _editing = r; _permsMode = true; _selPerms = new(); _modal = true; }
+    private void CloseModal() => _modal = false;
+    private void SetPerm(int id, int lvl) { if (lvl < 0) _selPerms.Remove(id); else _selPerms[id] = lvl; }
+
+    private async Task SaveAsync()
+    {
+        if (_permsMode && _editing != null)
+        {
+            var assignments = _selPerms.Select(kv => new PermissionAssignment(kv.Key, kv.Value)).ToList();
+            var r = await RoleService.AssignPermissionsAsync(_editing.Id, new(assignments));
+            _msg = r.IsSuccess ? "Permissions saved." : r.Error; _msgOk = r.IsSuccess;
+        }
+        else if (_editMode && _editing != null)
+        {
+            var r = await RoleService.UpdateRoleAsync(_editing.Id, new(_roleName, _roleDesc));
+            _msg = r.IsSuccess ? "Role updated." : r.Error; _msgOk = r.IsSuccess;
+        }
+        else
+        {
+            var r = await RoleService.CreateRoleAsync(new(_roleName, _roleDesc), _myId);
+            _msg = r.IsSuccess ? "Role created." : r.Error; _msgOk = r.IsSuccess;
+        }
+        CloseModal();
+        await LoadAsync();
+    }
+}

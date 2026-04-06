@@ -1,0 +1,241 @@
+﻿@page "/admin/users/{UserId:int}/edit"
+@using BigDaddyProject.Application.DTOs
+@using BigDaddyProject.Application.Interfaces
+@using BigDaddyProject.Web.Components.Layout
+@using BigDaddyProject.Web.Services
+@inject IUserService UserService
+@inject SessionStorageService Session
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<AdminLayout Breadcrumbs="_bc">
+    <Body>
+        <div class="form-page">
+            <div class="form-card">
+                <div class="form-card-head between">
+                    <div>
+                        <h2>Edit User</h2>
+                        <p class="form-card-sub">Update user details and account status.</p>
+                    </div>
+                    @if (_user != null)
+                    {
+                        <span class="status-pill @(_user.IsActive ? "pill-active" : "pill-inactive")">
+                            @_user.Status
+                        </span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(_err))
+                {
+                    <div class="alert-err">@_err</div>
+                }
+                @if (!string.IsNullOrEmpty(_ok))
+                {
+                    <div class="alert-ok">@_ok</div>
+                }
+
+                @if (_loading)
+                {
+                    <div class="form-loading">Loading user...</div>
+                }
+                else if (_user != null)
+                {
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Full Name <span class="req">*</span></label>
+                            <input @bind="_name" class="f-inp" />
+                        </div>
+                        <div class="field">
+                            <label>Email</label>
+                            <input @bind="_email" type="email" class="f-inp" />
+                        </div>
+                        <div class="field">
+                            <label>Mobile</label>
+                            <input @bind="_mobile" class="f-inp" />
+                        </div>
+                        <div class="field">
+                            <label>CEA / Reg Number</label>
+                            <input @bind="_ceaNum" class="f-inp" />
+                        </div>
+                        <div class="field">
+                            <label>CEA Expiry</label>
+                            <input @bind="_ceaExpiry" type="date" class="f-inp" />
+                        </div>
+                        <div class="field">
+                            <label>Expiration Date</label>
+                            <input @bind="_expiry" type="date" class="f-inp" />
+                        </div>
+                        <div class="field">
+                            <label>Status</label>
+                            <select @bind="_status" class="f-inp">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-foot">
+                        <button class="btn-primary" @onclick="SaveAsync" disabled="@_saving">
+                            @(_saving ? "Saving..." : "Save Changes")
+                        </button>
+                        @if (_user.IsActive)
+                        {
+                            <button class="btn-danger" @onclick="DeactivateAsync">Deactivate</button>
+                        }
+                        else
+                        {
+                            <button class="btn-success" @onclick="ActivateAsync">Activate</button>
+                        }
+                        <button class="btn-warn" @onclick="ResetPwdAsync">Reset Password</button>
+                        <button class="btn-secondary" @onclick='() => Nav.NavigateTo("/admin/users")'>
+                            ← Back
+                        </button>
+                    </div>
+
+                    <!-- Info row: roles + teams -->
+                    <div class="info-section">
+                        <div class="info-row">
+                            <span class="info-label">Roles:</span>
+                            <div class="tags">
+                                @foreach (var r in _user.Roles)
+                                {
+                                    <span class="tag tag-role">@r</span>
+                                }
+                                @if (!_user.Roles.Any())
+                                {
+                                    <span class="text-muted">None</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Teams:</span>
+                            <div class="tags">
+                                @foreach (var t in _user.Teams)
+                                {
+                                    <span class="tag tag-team">@t</span>
+                                }
+                                @if (!_user.Teams.Any())
+                                {
+                                    <span class="text-muted">None</span>
+                                }
+                            </div>
+                        </div>
+                        @if (_user.LastLoginTime.HasValue)
+                        {
+                            <div class="info-row">
+                                <span class="info-label">Last Login:</span>
+                                <span>@_user.LastLoginTime.Value.ToString("yyyy-MM-dd HH:mm UTC")</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </Body>
+</AdminLayout>
+
+<style>
+    .form-page { max-width: 820px; }
+    .form-card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .form-card-head { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f0f0f0; }
+    .form-card-head.between { display: flex; align-items: flex-start; justify-content: space-between; }
+    .form-card-head h2 { font-size: 1rem; font-weight: 600; color: #333; }
+    .form-card-sub { font-size: 0.825rem; color: #888; margin-top: 4px; }
+    .req { color: #c62828; }
+    .status-pill { padding: 4px 12px; border-radius: 12px; font-size: 0.775rem; font-weight: 600; }
+    .pill-active { background: #e8f5e9; color: #2e7d32; }
+    .pill-inactive { background: #fce4ec; color: #c62828; }
+    .alert-err { margin: 1rem 1.5rem 0; background: #fff0f0; border: 1px solid #ffcdd2; color: #c62828; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem; }
+    .alert-ok  { margin: 1rem 1.5rem 0; background: #f0fff4; border: 1px solid #c8e6c9; color: #2e7d32; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem; }
+    .form-loading { padding: 3rem; text-align: center; color: #888; font-size: 0.875rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; padding: 1.5rem; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 0.8rem; font-weight: 500; color: #555; }
+    .f-inp { height: 36px; padding: 0 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.875rem; color: #333; outline: none; }
+    .f-inp:focus { border-color: #1a237e; }
+    .form-foot { padding: 1rem 1.5rem; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-primary  { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 22px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+    .btn-primary:disabled { opacity: 0.7; }
+    .btn-secondary { background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 5px; padding: 8px 18px; cursor: pointer; font-size: 0.875rem; }
+    .btn-danger   { border: 1px solid #c62828; color: #c62828; background: white; border-radius: 5px; padding: 8px 16px; cursor: pointer; font-size: 0.875rem; }
+    .btn-success  { border: 1px solid #2e7d32; color: #2e7d32; background: white; border-radius: 5px; padding: 8px 16px; cursor: pointer; font-size: 0.875rem; }
+    .btn-warn     { border: 1px solid #e65100; color: #e65100; background: white; border-radius: 5px; padding: 8px 16px; cursor: pointer; font-size: 0.875rem; }
+    .info-section { padding: 1rem 1.5rem; border-top: 1px solid #f5f5f5; display: flex; flex-direction: column; gap: 10px; }
+    .info-row { display: flex; align-items: center; gap: 12px; font-size: 0.875rem; }
+    .info-label { font-weight: 500; color: #555; min-width: 70px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { padding: 2px 10px; border-radius: 10px; font-size: 0.775rem; }
+    .tag-role { background: #e8eaf6; color: #3949ab; }
+    .tag-team { background: #e8f5e9; color: #2e7d32; }
+    .text-muted { color: #aaa; font-size: 0.8rem; }
+</style>
+
+@code {
+    [Parameter] public int UserId { get; set; }
+
+    private List<(string, string, bool)> _bc = new()
+    {
+        ("Dashboard", "/admin", false),
+        ("User Management", "/admin/users", false),
+        ("Edit User", "", true)
+    };
+
+    private UserListItem? _user;
+    private string _name = "", _email = "", _mobile = "", _ceaNum = "", _status = "Active";
+    private DateTime? _ceaExpiry, _expiry;
+    private string? _err, _ok;
+    private bool _loading = true, _saving;
+    private int _myId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await Session.GetAsync();
+        _myId = s?.UserId ?? 0;
+        var r = await UserService.GetUserByIdAsync(UserId);
+        if (r.IsSuccess)
+        {
+            _user    = r.Value!;
+            _name    = _user.Name;
+            _email   = _user.Email;
+            _mobile  = _user.Mobile ?? "";
+            _ceaNum  = _user.RegNumber ?? "";
+            _status  = _user.Status;
+            _expiry  = _user.ExpirationDate;
+        }
+        else _err = r.Error;
+        _loading = false; StateHasChanged();
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true; _err = null;
+        var r = await UserService.UpdateUserAsync(UserId,
+            new UpdateUserRequest(_name, _email, _mobile.NullIfEmpty(),
+                _expiry, _status, _ceaNum.NullIfEmpty(), _ceaExpiry));
+        _saving = false;
+        _ok = r.IsSuccess ? "User updated successfully." : null;
+        _err = r.IsSuccess ? null : r.Error;
+    }
+
+    private async Task ActivateAsync()
+    {
+        var r = await UserService.ActivateAsync(UserId, _myId);
+        if (r.IsSuccess) { _ok = "User activated."; _user!.Status = "Active"; }
+        else _err = r.Error;
+    }
+
+    private async Task DeactivateAsync()
+    {
+        var r = await UserService.DeactivateAsync(UserId, _myId);
+        if (r.IsSuccess) { _ok = "User deactivated."; _user!.Status = "Inactive"; }
+        else _err = r.Error;
+    }
+
+    private async Task ResetPwdAsync()
+    {
+        var r = await UserService.AdminResetPasswordAsync(UserId, _myId);
+        _ok  = r.IsSuccess ? "New temporary password sent to user's email." : null;
+        _err = r.IsSuccess ? null : r.Error;
+    }
+}

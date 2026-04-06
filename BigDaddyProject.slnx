@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="BigDaddyProject.Application/BigDaddyProject.Application.csproj" />
+    <Project Path="BigDaddyProject.Domain/BigDaddyProject.Domain.csproj" />
+    <Project Path="BigDaddyProject.Infrastructure/BigDaddyProject.Infrastructure.csproj" />
+    <Project Path="BigDaddyProject.Web/BigDaddyProject.Web.csproj" />
+  </Folder>
+</Solution>

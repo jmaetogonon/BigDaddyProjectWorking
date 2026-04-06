@@ -1,0 +1,328 @@
+@page "/login"
+@page "/"
+@using BigDaddyProject.Application.DTOs
+@using BigDaddyProject.Application.Interfaces
+@using BigDaddyProject.Web.Services
+@inject IAuthService AuthService
+@inject SessionStorageService Session
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>Login — BigDaddy Admin Portal</PageTitle>
+
+<div class="login-page">
+
+    <!-- Header bar -->
+    <header class="login-header">
+        <div class="login-brand">
+            <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+                <rect width="14" height="14" rx="2" fill="white" opacity="0.9"/>
+                <rect x="18" width="14" height="14" rx="2" fill="white" opacity="0.6"/>
+                <rect y="18" width="14" height="14" rx="2" fill="white" opacity="0.6"/>
+                <rect x="18" y="18" width="14" height="14" rx="2" fill="white" opacity="0.9"/>
+            </svg>
+            <div class="brand-titles">
+                <span class="brand-main">Real Estate Analytics</span>
+                <span class="brand-sub">Admin Portal</span>
+            </div>
+        </div>
+        <a href="#" class="header-site-link">REA Website</a>
+    </header>
+
+    <!-- Center card (over background) -->
+    <div class="login-center">
+        <div class="login-card">
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="login-error">@_error</div>
+            }
+
+            <!-- Device confirmation dialog -->
+            @if (_showDeviceConfirm)
+            {
+                <div class="device-dialog">
+                    <div class="device-dialog-icon">📱</div>
+                    <p class="device-dialog-msg">@_deviceMsg</p>
+                    <div class="device-dialog-actions">
+                        <button class="btn-primary" @onclick="ConfirmDeviceAsync">Yes, Continue</button>
+                        <button class="btn-ghost" @onclick="CancelDevice">Cancel</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Email field -->
+                <div class="login-field">
+                    <span class="field-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                        </svg>
+                    </span>
+                    <input @bind="_email" @bind:event="oninput" @onkeyup="OnEnter"
+                           type="email" placeholder="Please input email"
+                           class="field-input @(_emailErr ? "field-input-err" : "")" />
+                </div>
+
+                <!-- Password field with show/hide toggle -->
+                <div class="login-field">
+                    <span class="field-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="11" width="18" height="11" rx="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                    </span>
+                    <input @bind="_password" @bind:event="oninput" @onkeyup="OnEnter"
+                           type="@(_showPwd ? "text" : "password")"
+                           placeholder="Please input password"
+                           class="field-input @(_pwdErr ? "field-input-err" : "")" />
+                    <button class="toggle-pwd" @onclick="() => _showPwd = !_showPwd" type="button">
+                        @if (_showPwd)
+                        {
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                <line x1="1" y1="1" x2="23" y2="23"/>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        }
+                    </button>
+                </div>
+
+                <!-- Login button -->
+                <button class="btn-login" @onclick="HandleLoginAsync" disabled="@_loading">
+                    @if (_loading)
+                    {
+                        <span class="btn-spinner"></span>
+                    }
+                    else
+                    {
+                        <span>Login</span>
+                    }
+                </button>
+
+                <!-- Forgot password link -->
+                <div class="login-links">
+                    <a href="/forgot-password">Forgot password?</a>
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="login-footer">
+        <span>©2024 Real Estate Analytics Pte Ltd</span>
+        <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Use</a>
+            <a href="#">Terms of Purchase</a>
+        </div>
+        <div class="footer-contact">
+            Contact us via
+            <a href="https://wa.me/" target="_blank">WhatsApp</a>
+            or <a href="mailto:contact@bigdaddy.com">email</a>
+        </div>
+    </footer>
+</div>
+
+<style>
+    .login-page {
+        min-height: 100vh; display: flex; flex-direction: column;
+        /* Background: use a skyline image or a gradient */
+        @* background: linear-gradient(160deg, #1a2a4a 0%, #2c4a7a 50%, #1a3a6a 100%); *@
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: url(/img/log_bg.jpg) no-repeat 0 80%;
+        background-size: cover;
+    }
+
+    /* Header */
+    .login-header {
+        height: 56px; background: #1a237e;
+        display: flex; align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        flex-shrink: 0;
+    }
+    .login-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-titles { display: flex; flex-direction: column; line-height: 1.1; }
+    .brand-main { color: white; font-size: 1rem; font-weight: 700; }
+    .brand-sub { color: rgba(255,255,255,0.7); font-size: 0.7rem; }
+    .header-site-link { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.875rem; }
+    .header-site-link:hover { color: white; }
+
+    /* Center */
+    .login-center {
+        flex: 1; display: flex; align-items: center;
+        justify-content: center; padding: 2rem;
+    }
+
+    /* Card */
+    .login-card {
+        background: white; border-radius: 12px;
+        padding: 2.5rem 2rem; width: 100%; max-width: 380px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        display: flex; flex-direction: column; gap: 1rem;
+    }
+
+    /* Error alert */
+    .login-error {
+        background: #fff0f0; border: 1px solid #ffcdd2; color: #c62828;
+        padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem;
+    }
+
+    /* Input fields */
+    .login-field {
+        display: flex; align-items: center;
+        border: 1px solid #e0e0e0; border-radius: 6px;
+        overflow: hidden; transition: border-color 0.2s;
+    }
+    .login-field:focus-within { border-color: #1a237e; }
+
+    .field-icon {
+        padding: 0 10px; color: #9e9e9e;
+        display: flex; align-items: center; flex-shrink: 0;
+    }
+    .field-input {
+        flex: 1; border: none; outline: none;
+        padding: 0.75rem 0.5rem; font-size: 0.875rem; color: #333;
+        background: transparent;
+    }
+    .field-input-err { background: #fff8f8; }
+    .toggle-pwd {
+        background: none; border: none; cursor: pointer;
+        padding: 0 10px; color: #9e9e9e;
+        display: flex; align-items: center;
+    }
+    .toggle-pwd:hover { color: #555; }
+
+    /* Login button */
+    .btn-login {
+        background: #1a237e; color: white; border: none;
+        border-radius: 6px; padding: 0.85rem; font-size: 1rem;
+        font-weight: 600; cursor: pointer; width: 100%;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        transition: background 0.2s;
+    }
+    .btn-login:hover:not(:disabled) { background: #283593; }
+    .btn-login:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    .btn-spinner {
+        width: 18px; height: 18px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white; border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Links */
+    .login-links { text-align: center; font-size: 0.875rem; }
+    .login-links a { color: #1a237e; text-decoration: none; }
+    .login-links a:hover { text-decoration: underline; }
+
+    /* Device confirmation */
+    .device-dialog { text-align: center; padding: 1rem 0; }
+    .device-dialog-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .device-dialog-msg { color: #555; font-size: 0.875rem; line-height: 1.6; margin-bottom: 1.5rem; }
+    .device-dialog-actions { display: flex; gap: 1rem; justify-content: center; }
+    .btn-primary { background: #1a237e; color: white; border: none; border-radius: 5px; padding: 8px 20px; cursor: pointer; font-size: 0.875rem; }
+    .btn-ghost { background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 5px; padding: 8px 20px; cursor: pointer; font-size: 0.875rem; }
+
+    /* Footer */
+    .login-footer {
+        background: #1a237e; padding: 0.75rem 2rem;
+        display: flex; align-items: center; flex-wrap: wrap;
+        gap: 1rem; color: rgba(255,255,255,0.7); font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+    .footer-links { display: flex; gap: 1rem; margin-left: auto; }
+    .footer-links a { color: rgba(255,255,255,0.7); text-decoration: none; }
+    .footer-links a:hover { color: white; }
+    .footer-contact { color: rgba(255,255,255,0.7); }
+    .footer-contact a { color: rgba(255,255,255,0.9); }
+</style>
+
+@code {
+    private string _email    = "";
+    private string _password = "";
+    private string? _error;
+    private bool _loading;
+    private bool _showPwd;
+    private bool _emailErr;
+    private bool _pwdErr;
+    private bool _showDeviceConfirm;
+    private string? _deviceMsg;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // Already logged in this tab? Go straight to dashboard
+        if (await Session.IsAuthenticatedAsync())
+            Nav.NavigateTo("/admin/users");
+    }
+
+    private async Task OnEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await HandleLoginAsync();
+    }
+
+    private async Task HandleLoginAsync()
+    {
+        _emailErr = string.IsNullOrWhiteSpace(_email);
+        _pwdErr   = string.IsNullOrWhiteSpace(_password);
+        if (_emailErr || _pwdErr) return;
+
+        _loading = true; _error = null;
+
+        var result = await AuthService.LoginAsync(
+            new LoginRequest(_email, _password, DeviceType: "Web"));
+
+        _loading = false;
+
+        if (!result.IsSuccess) { _error = result.Error; return; }
+
+        if (result.Value!.RequiresDeviceConfirmation)
+        {
+            _deviceMsg = result.Value.DeviceMessage;
+            _showDeviceConfirm = true;
+            return;
+        }
+
+        await FinishLoginAsync(result.Value!);
+    }
+
+    private async Task ConfirmDeviceAsync()
+    {
+        _loading = true;
+        var result = await AuthService.LoginAsync(
+            new LoginRequest(_email, _password, DeviceType: "Web", DeviceConfirmed: true));
+        _loading = false;
+        _showDeviceConfirm = false;
+
+        if (!result.IsSuccess) { _error = result.Error; return; }
+        await FinishLoginAsync(result.Value!);
+    }
+
+    private void CancelDevice()
+    {
+        _showDeviceConfirm = false;
+        _password = "";
+    }
+
+    private async Task FinishLoginAsync(LoginResponse resp)
+    {
+        await Session.SetAsync(
+            resp.UserInfo, resp.Token, resp.RefreshToken, resp.ExpiresAt);
+        Nav.NavigateTo("/admin/users");
+    }
+}
+ 

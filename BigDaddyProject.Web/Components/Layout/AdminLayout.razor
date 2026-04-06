@@ -1,0 +1,483 @@
+@using BigDaddyProject.Web.Services
+@inject SessionStorageService Session
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+@inject IJSRuntime _js  
+
+@if (!_checked)
+{
+    <div class="loading-screen">
+        <div class="loading-spinner"></div>
+    </div>
+}
+else if (_session == null)
+{
+    <div class="loading-screen"><p>Redirecting to login...</p></div>
+}
+else
+{
+    <div class="admin-layout">
+
+        <!-- ═══════════════════════════════ SIDEBAR ═══════════════════════════════ -->
+        <aside class="sidebar @(_collapsed ? "collapsed" : "")">
+
+            <!-- Brand -->
+            <div class="sidebar-brand">
+                <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+                    <rect width="14" height="14" rx="2" fill="white" opacity="0.9"/>
+                    <rect x="18" width="14" height="14" rx="2" fill="white" opacity="0.6"/>
+                    <rect y="18" width="14" height="14" rx="2" fill="white" opacity="0.6"/>
+                    <rect x="18" y="18" width="14" height="14" rx="2" fill="white" opacity="0.9"/>
+                </svg>
+                @if (!_collapsed)
+                {
+                    <span class="brand-name">@_orgName</span>
+                }
+            </div>
+
+            <!-- Avatar -->
+            <div class="sidebar-avatar">
+                <div class="avatar-circle">
+                    @if (!string.IsNullOrEmpty(_session.Photo))
+                    {
+                        <img src="@_session.Photo" alt="avatar"/>
+                    }
+                    else
+                    {
+                        <span>@_session.UserName[0].ToString().ToUpper()</span>
+                    }
+                </div>
+                @if (!_collapsed)
+                {
+                    <span class="avatar-name">@_session.UserName</span>
+                }
+            </div>
+
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+
+                @if (_session.IsAdmin || _session.IsManager)
+                {
+                    <!-- Admin section with expand/collapse -->
+                    <button class="nav-group" @onclick="ToggleAdmin">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        @if (!_collapsed)
+                        {
+                            <span>Admin</span>
+                            <svg class="nav-chevron @(_adminOpen ? "open" : "")"
+                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        }
+                    </button>
+
+                    @if (_adminOpen)
+                    {
+                        <!-- General Files -->
+                        <NavLink href="/admin/general-files" class="nav-item nav-child">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            @if (!_collapsed){<span>General Files</span>}
+                        </NavLink>
+
+                        <!-- Audit Logs -->
+                        <NavLink href="/admin/audit-logs" class="nav-item nav-child">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            @if (!_collapsed){<span>Audit Logs</span>}
+                        </NavLink>
+
+                        <!-- User Management group -->
+                        <button class="nav-group nav-child" @onclick="ToggleUserMgmt">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            @if (!_collapsed)
+                            {
+                                <span>User Management</span>
+                                <svg class="nav-chevron @(_userMgmtOpen ? "open" : "")"
+                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            }
+                        </button>
+
+                        @if (_userMgmtOpen)
+                        {
+                            <NavLink href="/admin/users" class="nav-item nav-leaf">
+                                @if (!_collapsed){<span>User List</span>}
+                                else {<span title="User List">👥</span>}
+                            </NavLink>
+                            <NavLink href="/admin/users/create" class="nav-item nav-leaf">
+                                @if (!_collapsed){<span>Create New Users</span>}
+                                else {<span title="Create">➕</span>}
+                            </NavLink>
+                            <NavLink href="/admin/teams" class="nav-item nav-leaf">
+                                @if (!_collapsed){<span>Teams</span>}
+                                else{ <span title="Teams">🏷</span>}
+                            </NavLink>
+                            <NavLink href="/admin/roles" class="nav-item nav-leaf">
+                                @if (!_collapsed){<span>Roles</span>}
+                                else {<span title="Roles">🔑</span>}
+                            </NavLink>
+                        }
+                    }
+                }
+
+            </nav>
+        </aside>
+
+        <!-- ═══════════════════════════════ MAIN ═══════════════════════════════ -->
+        <div class="main-wrap @(_collapsed ? "collapsed" : "")">
+
+            <!-- Topbar -->
+            <header class="topbar">
+                <!-- Hamburger -->
+                <button class="hamburger-btn" @onclick="ToggleSidebar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+
+                <!-- Breadcrumb -->
+                <nav class="breadcrumb" aria-label="breadcrumb">
+                    @foreach (var (label, url, isLast) in Breadcrumbs)
+                    {
+                        @if (!isLast)
+                        {
+                            <a href="@url" class="bc-link">@label</a>
+                            <span class="bc-sep">/</span>
+                        }
+                        else
+                        {
+                            <span class="bc-current">@label</span>
+                        }
+                    }
+                </nav>
+
+                <!-- Right side: fullscreen + user menu -->
+                <div class="topbar-right">
+                    <button class="icon-btn" title="Toggle Fullscreen"
+                            @onclick="ToggleFullscreen">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <polyline points="15 3 21 3 21 9"/>
+                            <polyline points="9 21 3 21 3 15"/>
+                            <line x1="21" y1="3" x2="14" y2="10"/>
+                            <line x1="3" y1="21" x2="10" y2="14"/>
+                        </svg>
+                    </button>
+
+                    <!-- User Menu — click to open dropdown -->
+                    <div class="user-menu-wrap">
+                        <button class="user-menu-btn" @onclick="ToggleDropdown">
+                            <div class="user-avatar-sm">
+                                @_session.UserName[0].ToString().ToUpper()
+                            </div>
+                            <span class="user-display-name">@_session.UserName</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown menu (matches screenshot 3) -->
+                        @if (_dropdownOpen)
+                        {
+                            <div class="user-dropdown-menu">
+                                <a href="/admin/change-password" class="dropdown-item"
+                                   @onclick="CloseDropdown">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                    </svg>
+                                    Change Password
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <button class="dropdown-item logout-item" @onclick="LogoutAsync">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2">
+                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                        <polyline points="16 17 21 12 16 7"/>
+                                        <line x1="21" y1="12" x2="9" y2="12"/>
+                                    </svg>
+                                    Log Out
+                                </button>
+                            </div>
+
+                            <!-- Click-outside overlay -->
+                            <div class="dropdown-backdrop" @onclick="CloseDropdown"></div>
+
+                        }
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page body -->
+            <main class="page-body">
+                @Body
+            </main>
+        </div>
+    </div>
+}
+
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Loading ─────────────────────────────────────────────────────── */
+    .loading-screen {
+        min-height: 100vh; display: flex; align-items: center;
+        justify-content: center; background: #f5f6fa;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .loading-spinner {
+        width: 36px; height: 36px;
+        border: 3px solid #e0e0e0; border-top-color: #1a237e;
+        border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .admin-layout {
+        display: flex; min-height: 100vh;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    .sidebar {
+        width: 220px; background: #2c3e50;
+        display: flex; flex-direction: column;
+        position: fixed; left: 0; top: 0; bottom: 0;
+        z-index: 100; overflow: hidden;
+        transition: width 0.25s ease;
+    }
+    .sidebar.collapsed { width: 56px; }
+
+    .sidebar-brand {
+        height: 56px; padding: 0 14px;
+        display: flex; align-items: center; gap: 10px;
+        background: #1a237e; flex-shrink: 0; overflow: hidden;
+    }
+    .brand-name {
+        color: white; font-weight: 700; font-size: 1rem;
+        white-space: nowrap; overflow: hidden;
+    }
+
+    .sidebar-avatar {
+        padding: 14px; display: flex; flex-direction: column;
+        align-items: center; gap: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .avatar-circle {
+        width: 64px; height: 64px; border-radius: 50%;
+        background: #546e7a; display: flex;
+        align-items: center; justify-content: center;
+        color: white; font-size: 1.5rem; font-weight: 600;
+        overflow: hidden; flex-shrink: 0;
+    }
+    .collapsed .avatar-circle { width: 32px; height: 32px; font-size: 0.9rem; }
+    .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-name {
+        color: rgba(255,255,255,0.8); font-size: 0.8rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        max-width: 180px;
+    }
+
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+    /* Nav group button (expandable header) */
+    .nav-group {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; color: rgba(255,255,255,0.75);
+        background: none; border: none; cursor: pointer;
+        font-size: 0.875rem; width: 100%; text-align: left;
+        transition: background 0.15s, color 0.15s;
+        white-space: nowrap; overflow: hidden;
+    }
+    .nav-group:hover { background: rgba(255,255,255,0.07); color: white; }
+    .nav-group.nav-child { padding-left: 24px; }
+
+    /* Nav item (NavLink) */
+    .nav-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; color: rgba(255,255,255,0.75);
+        text-decoration: none; font-size: 0.875rem;
+        transition: background 0.15s, color 0.15s;
+        white-space: nowrap; overflow: hidden;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
+    .nav-item.active { background: rgba(255,255,255,0.12) !important; color: white !important; }
+    .nav-item.nav-child { padding-left: 24px; }
+    .nav-item.nav-leaf { padding-left: 36px; font-size: 0.825rem; }
+
+    .nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+    .nav-chevron {
+        width: 14px; height: 14px; margin-left: auto; flex-shrink: 0;
+        transition: transform 0.2s;
+    }
+    .nav-chevron.open { transform: rotate(180deg); }
+
+    /* scrollbar in sidebar */
+    .sidebar-nav::-webkit-scrollbar { width: 3px; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+    /* ── Main Wrap ───────────────────────────────────────────────────── */
+    .main-wrap {
+        margin-left: 220px; flex: 1; display: flex; flex-direction: column;
+        transition: margin-left 0.25s ease; min-width: 0;
+    }
+    .main-wrap.collapsed { margin-left: 56px; }
+
+    /* ── Topbar ──────────────────────────────────────────────────────── */
+    .topbar {
+        height: 56px; background: white;
+        border-bottom: 1px solid #e8eaed;
+        display: flex; align-items: center;
+        padding: 0 1.5rem; gap: 1rem;
+        position: sticky; top: 0; z-index: 50;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    overflow: visible;
+    }
+
+    .hamburger-btn {
+        background: none; border: none; cursor: pointer;
+        color: #555; padding: 6px; border-radius: 4px;
+        display: flex; align-items: center; flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: #f5f5f5; }
+
+    .breadcrumb {
+        display: flex; align-items: center;
+        gap: 6px; font-size: 0.875rem; flex: 1; min-width: 0;
+    }
+    .bc-link { color: #1a237e; text-decoration: none; white-space: nowrap; }
+    .bc-link:hover { text-decoration: underline; }
+    .bc-sep { color: #bdbdbd; }
+    .bc-current { color: #555; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    .icon-btn {
+        background: none; border: none; cursor: pointer;
+        color: #555; padding: 6px; border-radius: 4px;
+        display: flex; align-items: center;
+    }
+    .icon-btn:hover { background: #f5f5f5; }
+
+    /* ── User Menu Dropdown ──────────────────────────────────────────── */
+    .user-menu-wrap { position: relative; }
+
+    .user-menu-btn {
+        display: flex; align-items: center; gap: 8px;
+        background: none; border: none; cursor: pointer;
+        padding: 6px 10px; border-radius: 6px;
+        transition: background 0.15s;
+    }
+    .user-menu-btn:hover { background: #f5f5f5; }
+
+    .user-avatar-sm {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: #1a237e; color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem; font-weight: 600; flex-shrink: 0;
+    }
+    .user-display-name { font-size: 0.875rem; font-weight: 500; color: #333; }
+
+    /* invisible overlay to catch clicks outside dropdown */
+    .dropdown-backdrop {
+        position: fixed; inset: 0; z-index: 199;
+    }
+
+    /* Dropdown menu (exactly like screenshot 3) */
+    .user-dropdown-menu {
+        position: absolute; top: calc(100% + 6px); right: 0;
+        background: white; border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+        min-width: 190px; z-index: 200; overflow: hidden;
+    }
+
+    .dropdown-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 16px; font-size: 0.875rem; color: #333;
+        text-decoration: none; cursor: pointer;
+        background: none; border: none;
+        width: 100%; text-align: left;
+        transition: background 0.12s;
+    }
+    .dropdown-item:hover { background: #f5f5f5; }
+
+    .logout-item { color: #1a237e; }
+    .logout-item:hover { background: #e8eaf6; }
+
+    .dropdown-divider { border: none; border-top: 1px solid #f0f0f0; }
+
+    /* ── Page Body ───────────────────────────────────────────────────── */
+    .page-body {
+        flex: 1; padding: 1.5rem;
+        background: #f5f6fa; min-height: calc(100vh - 56px);
+    }
+</style>
+
+@code {
+    [Parameter] public RenderFragment? Body { get; set; }
+    [Parameter] public List<(string Label, string Url, bool IsLast)> Breadcrumbs { get; set; } = new();
+
+    private SessionInfo? _session;
+    private bool _checked;
+    private bool _collapsed;
+    private bool _adminOpen = true;
+    private bool _userMgmtOpen = true;
+    private bool _dropdownOpen;
+    private string _orgName = "BigDaddy";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Session.GetAsync();
+        _checked = true;
+        if (_session == null)
+            Nav.NavigateTo("/login");
+        StateHasChanged();
+    }
+
+    private void ToggleSidebar()  => _collapsed = !_collapsed;
+    private void ToggleAdmin()    => _adminOpen = !_adminOpen;
+    private void ToggleUserMgmt() => _userMgmtOpen = !_userMgmtOpen;
+    private void ToggleDropdown() => _dropdownOpen = !_dropdownOpen;
+    private void CloseDropdown()  => _dropdownOpen = false;
+
+    private async Task ToggleFullscreen()
+    {
+        await Task.Run(() => { }); // satisfy async
+        // Calls JS helper
+        /* In full impl: */ await _js.InvokeVoidAsync("bigdaddy.toggleFullscreen");
+    }
+
+    /// <summary>
+    /// Logout: clears sessionStorage + cookie, redirects to /login.
+    /// Called by "Log Out" in the dropdown.
+    /// </summary>
+    private async Task LogoutAsync()
+    {
+        _dropdownOpen = false;
+        await Session.ClearAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}
